@@ -1,4 +1,4 @@
-import { GetItemCommand, PutItemCommand, ScanCommand } from "@aws-sdk/client-dynamodb";
+import { DeleteItemCommand, GetItemCommand, PutItemCommand, ScanCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
 import { v4 as uuidv4 } from "uuid";
 
@@ -22,6 +22,11 @@ exports.handler = async(event) => {
 
         case "POST":
             body = await createProduct(event);
+
+            break;
+
+        case "DELETE":
+            body = await deleteProduct(event.pathParameters.id);
 
             break;
 
@@ -102,3 +107,24 @@ const createProduct = async(event) => {
         throw error;
     }
 };
+
+const deleteProduct = async(productId) => {
+    console.log(`deleteProduct function. productId: "${productId}"`);
+
+    try {
+        const params = {
+            TableName: process.env.DYNAMODB_TABLE_NAME,
+            Key: marshall({ id: productId })
+        };
+
+        const deleteResult = await ddbClient.send(new DeleteItemCommand(params));
+
+        console.log(deleteResult);
+
+        return deleteResult;
+    } catch (error) {
+        console.error(error);
+
+        throw error;
+    }
+}
