@@ -1,5 +1,6 @@
-import { GetItemCommand, ScanCommand } from "@aws-sdk/client-dynamodb";
+import { GetItemCommand, PutItemCommand, ScanCommand } from "@aws-sdk/client-dynamodb";
 import { marshall, unmarshall } from "@aws-sdk/util-dynamodb";
+import { v4 as uuidv4 } from "uuid";
 
 import { ddbClient } from "./ddbClient";
 
@@ -16,6 +17,16 @@ exports.handler = async(event) => {
             } else {
                 body = await getAllProducts(); // GET /product
             }
+
+            break;
+
+        case "POST":
+            body = await createProduct(event);
+
+            break;
+
+        default:
+            throw new Error(`Unsupported route: "${event.httpMethod}"`);
     }
 
     return {
@@ -28,6 +39,8 @@ exports.handler = async(event) => {
 };
 
 const getProduct = async(productId) => {
+    console.log("getProduct");
+
     try {
         const params = {
             TableName: process.env.DYNAMODB_TABLE_NAME,
@@ -35,6 +48,8 @@ const getProduct = async(productId) => {
         };
 
         const { Item } = await ddbClient.send(new GetItemCommand(params));
+
+        console.log(Item);
 
         return Item ? unmarshall(Item) : {};
     } catch (error) {
@@ -44,6 +59,8 @@ const getProduct = async(productId) => {
 };
 
 const getAllProducts = async() => {
+    console.log("getAllProducts");
+
     try {
         const params = {
             TableName: process.env.DYNAMODB_TABLE_NAME
@@ -51,9 +68,37 @@ const getAllProducts = async() => {
 
         const { Items } = await ddbClient.send(new ScanCommand(params));
 
+        console.log(Items);
+
         return Items ? Items.map((item) => unmarshall(item)) : {};
     } catch (error) {
         console.error(error);
+        throw error;
+    }
+};
+
+const createProduct = async(event) => {
+    console.log(`createProduct function. event: "${event}"`);
+
+    try {
+        const productRequest = JSON.parse(event.body);
+
+        const productId = uuidv4();
+        productRequest.id = productId;
+
+        const params = {
+            TableName: process.env.DYNAMODB_TABLE_NAME,
+            Item: marshall(productRequest || {})
+        };
+
+        const createResult = await ddbClient.send(new PutItemCommand(params));
+
+        console.log(createResult);
+
+        return createResult;
+    } catch (error) {
+        console.error(error);
+
         throw error;
     }
 };
